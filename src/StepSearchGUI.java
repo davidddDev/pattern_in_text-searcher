@@ -2,13 +2,15 @@ import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.text.*;
 import java.awt.*;
+import java.io.FileInputStream;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
 
 public class StepSearchGUI extends JFrame {
 
     private JTextPane textPane;
     private JTextArea inputTextArea;
     private JTextField patternField;
-    private JButton nextStepButton, skipButton, resetButton, setTextButton;
+    private JButton nextStepButton, skipButton, resetButton, setTextButton, loadWordButton;
     private JLabel statusLabel;
 
     private String text;
@@ -18,7 +20,7 @@ public class StepSearchGUI extends JFrame {
     private int patternIndex = 0;
     private int startPos = 0;
 
-    private Object currentHighlight = null; // udržuje aktuální zvýraznění
+    private Object currentHighlight = null;
 
     private Highlighter.HighlightPainter greenPainter = new DefaultHighlighter.DefaultHighlightPainter(new Color(144, 238, 144));
     private Highlighter.HighlightPainter redPainter = new DefaultHighlighter.DefaultHighlightPainter(Color.RED);
@@ -40,11 +42,13 @@ public class StepSearchGUI extends JFrame {
         skipButton = createButton("Skip to End", new Color(34, 139, 34), Color.WHITE);
         resetButton = createButton("Reset", new Color(220, 20, 60), Color.WHITE);
         setTextButton = createButton("Set Text", new Color(255, 140, 0), Color.WHITE);
+        loadWordButton = createButton("Load Word", new Color(123, 104, 238), Color.WHITE);
 
         nextStepButton.addActionListener(e -> step());
         skipButton.addActionListener(e -> skipToEnd());
         resetButton.addActionListener(e -> resetAll());
         setTextButton.addActionListener(e -> setText());
+        loadWordButton.addActionListener(e -> loadWordFile());
 
         JPanel topPanel = new JPanel();
         topPanel.setBorder(new EmptyBorder(10,10,10,10));
@@ -54,6 +58,7 @@ public class StepSearchGUI extends JFrame {
         topPanel.add(skipButton);
         topPanel.add(resetButton);
         topPanel.add(setTextButton);
+        topPanel.add(loadWordButton);
 
         add(topPanel, BorderLayout.NORTH);
 
@@ -119,7 +124,6 @@ public class StepSearchGUI extends JFrame {
 
         pattern = patternField.getText();
 
-        // Kontrola délky patternu
         if (pattern.length() > text.length()) {
             statusLabel.setText("Vzorek nesmí být delší než text!");
             return;
@@ -135,15 +139,15 @@ public class StepSearchGUI extends JFrame {
             char t = text.charAt(textIndex);
             char p = pattern.charAt(patternIndex);
 
-            removeCurrentHighlight(); // odstraní předchozí zvýraznění aktuálního znaku
+            removeCurrentHighlight();
 
             if (t == p) {
-                highlightCurrentStep(textIndex, true); // zelené zvýraznění jen pro aktuální krok
+                highlightCurrentStep(textIndex, true);
                 patternIndex++;
                 textIndex++;
                 statusLabel.setText("Shoda: '" + t + "'");
             } else {
-                highlightCurrentStep(textIndex, false); // červené zvýraznění
+                highlightCurrentStep(textIndex, false);
                 startPos++;
                 textIndex = startPos;
                 patternIndex = 0;
@@ -151,8 +155,8 @@ public class StepSearchGUI extends JFrame {
             }
 
             if (patternIndex == pattern.length()) {
-                highlightFound(startPos, startPos + pattern.length()); // celý vzorek zeleně
-                removeCurrentHighlight(); // odstraní aktuální zvýraznění
+                highlightFound(startPos, startPos + pattern.length());
+                removeCurrentHighlight();
                 statusLabel.setText("Vzorek nalezen – pokračuje hledání dalších výskytů");
                 startPos++;
                 textIndex = startPos;
@@ -218,6 +222,28 @@ public class StepSearchGUI extends JFrame {
         inputTextArea.setText("");
         inputTextArea.setEditable(true);
         statusLabel.setText("Status: Ready");
+    }
+
+    private void loadWordFile() {
+        JFileChooser chooser = new JFileChooser();
+        int result = chooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = chooser.getSelectedFile();
+            try (FileInputStream fis = new FileInputStream(file);
+                 XWPFDocument doc = new XWPFDocument(fis)) {
+
+                StringBuilder sb = new StringBuilder();
+                for (org.apache.poi.xwpf.usermodel.XWPFParagraph p : doc.getParagraphs()) {
+                    sb.append(p.getText()).append("\n");
+                }
+                inputTextArea.setText(sb.toString());
+                statusLabel.setText("Word dokument načten, klikni Set Text");
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                statusLabel.setText("Chyba při načítání Word dokumentu!");
+            }
+        }
     }
 
     public static void main(String[] args) {
